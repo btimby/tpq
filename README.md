@@ -140,4 +140,24 @@ $ tpq consume queue_name --wait=0
 
 $ # Specified number of seconds.
 $ tpq consume queue_name --wait=5
+
+$ # The return code signals whether an item was received or not.
+$ tpq consume test
+{'foo': 'bar'}
+$ echo $?
+0
+
+# For an empty queue, you get 1
+$ tpq consume test --wait=-1
+Queue empty
+Traceback (most recent call last):
+  File "/home/btimby/Code/tpq/tpq/__main__.py", line 24, in consume
+    print(get(opt['<name>'], wait=opt['--wait']))
+  File "/home/btimby/Code/tpq/tpq/__init__.py", line 266, in get
+    return q.get(wait=wait)
+  File "/home/btimby/Code/tpq/tpq/__init__.py", line 233, in get
+    raise QueueEmpty()
+queue.Empty
+$ echo $?
+1
 ```
