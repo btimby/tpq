@@ -30,8 +30,8 @@ in the table to be "retried" by another consumer. Since `FOR UPDATE` is used,
 the queue item remains locked to avoid multiple consumers obtaining that item
 from the queue.
 
-Usage
------
+Python Library Usage
+--------------------
 
 Database connection information can be provided via the library API.
 
@@ -101,6 +101,9 @@ tpq.get('queue_name', wait=-1)
 # Wait specified number of seconds.
 tpq.get('queue_name', wait=5)
 ```
+
+Command Line Interface
+----------------------
 
 Command line interface is also provided. JSON can be provided via a file or
 stdin (the default).
