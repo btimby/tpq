@@ -88,10 +88,10 @@ Command line interface is also provided. JSON can be provided via a file or
 stdin (the default).
 
 ```bash
-$ # Configure you database
+$ # Configure your database.
 $ export TPQ_URL="postgresql://user:pass@localhost/foobar"
 
-$ # JSON via stdin (default)
+$ # JSON via stdin (default).
 $ echo "{\"foo\": \"bar\"}" | tpq produce queue_name
 
 $ # JSON via file.
@@ -100,7 +100,16 @@ $ tpq produce queue_name --file=message.json
 $ # Explicitly provide JSON via stdin.
 $ tpq produce queue_name --file=- < message.json
 
-$ # Then read the item to stdout
+$ # Then read the item to stdout.
 $ tpq consume queue_name
 {"foo": "bar"}
+
+$ # And if you have trouble (or for logging). Debug output goes to stderr of course
+$ TPQ_URL="postgresql://user:pass@localhost/dbname" tpq consume queue_name --debug
+Read database config from environment
+Parsing TPQ_URL
+Database config found
+Attempting to read item
+Item read, returning
+{'foo': 'bar'}
 ```
