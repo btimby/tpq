@@ -1,7 +1,10 @@
+from __future__ import absolute_import
+
 import os
 import time
 import logging
 
+from urllib.parse import urlparse
 from select import select
 from queue import Empty as QueueEmpty
 
@@ -74,11 +77,23 @@ def connect(host=None, dbname=None, user=None, password=None):
     Attempts to connect to Postgres.
     """
     if not any((host, dbname, user, password)):
-        host = os.environ.get('POSTGRESQL_HOST', None)
-        dbname = os.environ.get('POSTGRESQL_DB', None)
-        user = os.environ.get('POSTGRESQL_USER', None)
-        password = os.environ.get('POSTGRESQL_PASS', None)
         LOGGER.debug('Read database config from environment')
+        url = os.environ.get('TPQ_URL', None)
+        if url:
+            LOGGER.debug('Parsing TPQ_URL')
+            urlp = urlparse(url)
+            host = urlp.hostname
+            dbname = urlp.path.strip('/')
+            user = urlp.username
+            password = urlp.password
+        else:
+            LOGGER.debug('Looking for TPQ_{HOST, DB, USER, PASS}')
+            host = os.environ.get('TPQ_HOST', None)
+            dbname = os.environ.get('TPQ_DB', None)
+            user = os.environ.get('TPQ_USER', None)
+            password = os.environ.get('TPQ_PASS', None)
+        if any((host, dbname, user, password)):
+            LOGGER.debug('Database config found')
     if not any((host, dbname, user, password)):
         raise Exception('No database connection provided or configured.')
     return psycopg2.connect(host=host, dbname=dbname, user=user,
@@ -180,9 +195,11 @@ class Queue(object):
 
             def _get():
                 """Attempts to get the next item."""
+                LOGGER.debug('Attempting to read item')
                 cursor.execute(GET_SQL, {'name': self.table})
                 row = cursor.fetchone()
                 if row:
+                    LOGGER.debug('Item read, returning')
                     return row[0]
 
             def _wait():
@@ -212,13 +229,16 @@ class Queue(object):
                 if data:
                     return data
                 if wait < 0:
+                    LOGGER.debug('Empty, waiting disabled')
                     raise QueueEmpty()
+                LOGGER.debug('Waiting for {0}', wait)
                 _wait()
                 # There is a race condition, listen might return, but another
                 # listener scoops us. Therefore, we may end up waiting some
                 # more. Calculate how long we should continue waiting in that
                 # case.
                 wait = 0 if wait == 0 else wait - time.time() - start
+                LOGGER.debug('Waiting done. {} remaining', wait)
 
 
 def put(name, data, **kwargs):

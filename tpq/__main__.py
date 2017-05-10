@@ -1,21 +1,29 @@
-import json, sys, logging
+from __future__ import absolute_import
+
+import json
+import sys
+import logging
 
 from docopt import docopt, DocoptExit
 from schema import Schema, Use, SchemaError
 
-from . import Queue, get, put
+from tpq import QueueEmpty, get, put
 
 
 LOGGER = logging.getLogger('')
 LOGGER.setLevel(logging.INFO)
-LOGGER.addHandler(logging.StreamHandler())
+LOGGER.addHandler(logging.StreamHandler(sys.stderr))
 
 
 def consume(opt):
     """
     Read from queue.
     """
-    LOGGER.info(get(opt['<name>']))
+    try:
+        # Print to stdout, errors are on stderr
+        print(get(opt['<name>']))
+    except QueueEmpty:
+        LOGGER.exception('Queue empty', exc_info=True)
 
 
 def produce(opt):
@@ -43,7 +51,7 @@ def main(opt):
     tpq - Trivial Postgress Queue
 
     Usage:
-        tpq produce <name> [--file=<path> --debug]
+        tpq produce <name> [--debug --file=<path>]
         tpq consume <name> [--debug]
 
     Commands:
@@ -67,6 +75,9 @@ def main(opt):
 if __name__ == '__main__':
     try:
         opt = docopt(main.__doc__)
+        opt = Schema({
+            object: object,
+        }).validate(opt)
     except (SchemaError, DocoptExit) as e:
         print(e)
     else:
