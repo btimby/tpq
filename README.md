@@ -1,11 +1,11 @@
 Trivial Postgres Queue
 ======================
 
-This is a simple queue that can place JSON blobs into a FIFO queue and later
+This is a simple library that can place JSON blobs into a FIFO queue and later
 retrieve them.
 
 The difference between this queue and other similar queues is that it utilizes
-FOR UPDATE SKIP LOCKED.
+`FOR UPDATE SKIP LOCKED`.
 
 The advantage here is that queue items remain in the queue until the current
 transaction is committed. Upon rollback, the item is left in the queue
@@ -26,15 +26,14 @@ ROLLBACK
 ```
 
 In the above, none of the statements have any affect, and the queue item remains
-in the table to be "retried" by another consumer. Since FOR UPDATE is used, the
-queue item remains locked to avoid multiple consumers obtaining that item from
-the queue.
+in the table to be "retried" by another consumer. Since `FOR UPDATE` is used,
+the queue item remains locked to avoid multiple consumers obtaining that item
+from the queue.
 
 Usage
 -----
 
-Database connection information can be provided via the library API or
-environment variables.
+Database connection information can be provided via the library API.
 
 ```python
 import tpq
@@ -46,6 +45,14 @@ q.put('{"foo": "bar"}')
 # Or use shortcut functions:
 tpq.put('queue_name', '{"foo": "bar"}', host='localhost', dbname='foobar')
 tpq.get('queue_name', host='localhost', dbname='foobar')
+
+# Or to take advantage of cooperative transactions, provide a connection:
+q = tpq.Queue('queue_name', conn=connection)
+q.put('{"foo": "bar"}')
+
+# Which is also supported by shortcut functions:
+tpq.put('queue_name', '{"foo": "bar"}', conn=connection)
+tpq.get('queue_name', conn=connection)
 ```
 
 Or, you can set the connection info in the environment:
