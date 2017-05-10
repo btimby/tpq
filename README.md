@@ -105,7 +105,7 @@ $ tpq consume queue_name
 {"foo": "bar"}
 
 $ # And if you have trouble (or for logging). Debug output goes to stderr of course
-$ TPQ_URL="postgresql://user:pass@localhost/dbname" tpq consume queue_name --debug
+$ TPQ_URL="postgresql://user:pass@localhost/foobar" tpq consume queue_name --debug
 Read database config from environment
 Parsing TPQ_URL
 Database config found
