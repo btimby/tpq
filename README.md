@@ -1,4 +1,5 @@
 Trivial Postgres Queue
+======================
 
 This is a simple queue that can place JSON blobs into a FIFO queue and later
 retrieve them.
@@ -22,12 +23,15 @@ follow order of operations
     DELETE FROM ...
 
     ROLLBACK
-``
+```
 
 In the above, none of the statements have any affect, and the queue item remains
 in the table to be "retried" by another consumer. Since FOR UPDATE is used, the
 queue item remains locked to avoid multiple consumers obtaining that item from
 the queue.
+
+Usage
+-----
 
 Database connection information can be provided via the library API or
 environment variables.
