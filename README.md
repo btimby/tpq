@@ -84,6 +84,24 @@ tpq.get('queue_name')
 
 ```
 
+Waiting
+-------
+
+You can wait for an item to arrive using the `wait` argument.
+
+```python
+import tpq
+
+# Wait forever
+tpq.get('queue_name', wait=0)
+
+# Don't wait (also can omit the param).
+tpq.get('queue_name', wait=-1)
+
+# Wait specified number of seconds.
+tpq.get('queue_name', wait=5)
+```
+
 Command line interface is also provided. JSON can be provided via a file or
 stdin (the default).
 
@@ -112,4 +130,11 @@ Database config found
 Attempting to read item
 Item read, returning
 {'foo': 'bar'}
+
+$ # And of course you can wait on the CLI too...
+$ # Forever
+$ tpq consume queue_name --wait=0
+
+$ # Specified number of seconds.
+$ tpq consume queue_name --wait=5
 ```
