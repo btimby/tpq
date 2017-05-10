@@ -22,8 +22,10 @@ def consume(opt):
     try:
         # Print to stdout, errors are on stderr
         print(get(opt['<name>'], wait=opt['--wait']))
+        sys.exit(0)
     except QueueEmpty:
         LOGGER.exception('Queue empty', exc_info=True)
+        sys.exit(1)
 
 
 def produce(opt):
