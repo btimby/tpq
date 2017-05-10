@@ -21,7 +21,7 @@ def consume(opt):
     """
     try:
         # Print to stdout, errors are on stderr
-        print(get(opt['<name>']))
+        print(get(opt['<name>'], wait=opt['--wait']))
     except QueueEmpty:
         LOGGER.exception('Queue empty', exc_info=True)
 
@@ -52,15 +52,16 @@ def main(opt):
 
     Usage:
         tpq produce <name> [--debug --file=<path>]
-        tpq consume <name> [--debug]
+        tpq consume <name> [--debug --wait=<seconds>]
 
     Commands:
         produce  write to queue.
         consume  read from queue.
 
     Options:
-        --file=<path>  The file containing JSON or - for stdin [default: -]
-        --debug        Print more output.
+        --file=<path>     The file containing JSON or - for stdin [default: -]
+        --wait=<seconds>  Seconds to wait for item [default: -1]
+        --debug           Print more output.
     """
     if opt['--debug']:
         LOGGER.setLevel(logging.DEBUG)
@@ -76,6 +77,8 @@ if __name__ == '__main__':
     try:
         opt = docopt(main.__doc__)
         opt = Schema({
+            '--wait': Use(int),
+
             object: object,
         }).validate(opt)
     except (SchemaError, DocoptExit) as e:

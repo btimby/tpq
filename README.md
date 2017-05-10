@@ -102,9 +102,9 @@ $ tpq produce queue_name --file=- < message.json
 
 $ # Then read the item to stdout.
 $ tpq consume queue_name
-{"foo": "bar"}
+{'foo': 'bar'}
 
-$ # And if you have trouble (or for logging). Debug output goes to stderr of course
+$ # And if you have trouble (or for logging). Debug output goes to stderr of course.
 $ TPQ_URL="postgresql://user:pass@localhost/foobar" tpq consume queue_name --debug
 Read database config from environment
 Parsing TPQ_URL

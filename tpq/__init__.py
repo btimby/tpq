@@ -231,14 +231,17 @@ class Queue(object):
                 if wait < 0:
                     LOGGER.debug('Empty, waiting disabled')
                     raise QueueEmpty()
-                LOGGER.debug('Waiting for {0}', wait)
+                if wait == 0:
+                    LOGGER.debug('Waiting indefinitely')
+                else:
+                    LOGGER.debug('Waiting for %ss', wait)
                 _wait()
                 # There is a race condition, listen might return, but another
                 # listener scoops us. Therefore, we may end up waiting some
                 # more. Calculate how long we should continue waiting in that
                 # case.
                 wait = 0 if wait == 0 else wait - time.time() - start
-                LOGGER.debug('Waiting done. {} remaining', wait)
+                LOGGER.debug('Waiting done. %ss remaining', wait)
 
 
 def put(name, data, **kwargs):
