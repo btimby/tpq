@@ -16,13 +16,13 @@ also rolled back. Making the larger queue processing operation atomic. Take the
 follow order of operations
 
 ```sql
-    BEGIN
-    SELECT ... FROM queue FOR UPDATE SKIP LOCKED
+BEGIN
+SELECT ... FROM queue FOR UPDATE SKIP LOCKED
 
-    INSERT INTO ...
-    DELETE FROM ...
+INSERT INTO ...
+DELETE FROM ...
 
-    ROLLBACK
+ROLLBACK
 ```
 
 In the above, none of the statements have any affect, and the queue item remains
@@ -40,19 +40,21 @@ environment variables.
 import tpq
 
 # Explicitly provide database connection information
-
 q = tpq.Queue('queue_name', host='localhost', dbname='foobar')
+q.put('{"foo": "bar"}')
+
+# Or use shortcut functions:
+tpq.put('queue_name', '{"foo": "bar"}', host='localhost', dbname='foobar')
+tpq.get('queue_name', host='localhost', dbname='foobar')
 ```
 
 Or, you can set the connection info in the environment:
 
 ```bash
 $ # Export as URL
-
 $ export TPQ_URL="postgresql://user:pass@localhost/foobar"
 
 $ # Or separately
-
 $ export TPQ_HOST=localhost
 $ export TPQ_DB=foobar
 $ export TPQ_USER=user
@@ -71,17 +73,19 @@ with tpq.Queue('queue_name') as q:
     data = q.get()
 
 # Or use shortcut functions:
-
 tpq.put('queue_name', '{"foo": "bar"}')
 tpq.get('queue_name')
 
 ```
 
-Command line interface is also provided.
+Command line interface is also provided. JSON can be provided via a file or
+stdin (the default).
 
 ```bash
 $ export TPQ_URL="postgresql://user:pass@localhost/foobar"
 $ echo "{\"foo\": \"bar\"}" | tpq produce queue_name
-$ tqp consume queue_name
+$ tpq produce queue_name --file=message.json
+$ tpq produce queue_name --file=- < message.json
+$ tpq consume queue_name
 {"foo": "bar"}
 ```
