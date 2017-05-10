@@ -1,0 +1,3 @@
+#!/bin/bash
+
+/bin/env python -m tpq $@
