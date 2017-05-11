@@ -98,9 +98,9 @@ class QueueTestCase(unittest.TestCase):
         double-dipping).
         """
         self.queue.put({'test':'test'})
-        c1 = ThreadedConsumer(tpq.Queue('test'), work=10)
+        c1 = ThreadedConsumer(self.queue, work=10)
         time.sleep(0.1)
-        c2 = ThreadedConsumer(tpq.Queue('test'))
+        c2 = ThreadedConsumer(self.queue)
         time.sleep(0.1)
         c1.stop()
         c2.stop()
@@ -120,8 +120,8 @@ class QueueTestCase(unittest.TestCase):
         """
         self.queue.put({'test': 'test'})
         self.queue.put({'test': 'test'})
-        c1 = ThreadedConsumer(tpq.Queue('test'), work=10)
-        c2 = ThreadedConsumer(tpq.Queue('test'), work=10)
+        c1 = ThreadedConsumer(self.queue, work=10)
+        c2 = ThreadedConsumer(self.queue, work=10)
         time.sleep(0.1)
         c1.stop()
         c2.stop()
@@ -139,9 +139,9 @@ class QueueTestCase(unittest.TestCase):
         put, got = [], []
         for i in range(10):
             put.append({'test': i})
-        p = ThreadedProducer(tpq.Queue('test'), put)
+        p = ThreadedProducer(self.queue, put)
         p.join()
-        c = ThreadedConsumer(tpq.Queue('test'), exit=True)
+        c = ThreadedConsumer(self.queue, exit=True)
         c.join()
         self.assertEqual(len(put), len(c.items))
         self.assertEqual(put, c.items)
@@ -151,10 +151,9 @@ class QueueTestCase(unittest.TestCase):
         Ensure len() works for queue.
         """
         self.assertEqual(0, len(self.queue))
-        ThreadedProducer(
-            tpq.Queue('test'), [{'a': 'b'} for i in range(10)]).join()
+        ThreadedProducer(self.queue, [{'a': 'b'} for i in range(10)]).join()
         self.assertEqual(10, len(self.queue))
-        c = ThreadedConsumer(tpq.Queue('test'), exit=True)
+        c = ThreadedConsumer(self.queue, exit=True)
         c.join()
         self.assertEqual(10, len(c.items))
         self.assertEqual(0, len(self.queue))
