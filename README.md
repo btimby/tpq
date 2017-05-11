@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/btimby/tpq.svg?branch=master)](https://travis-ci.org/btimby/tpq)
+[![Coverage Status](https://coveralls.io/repos/github/btimby/tpq/badge.svg?branch=master)](https://coveralls.io/github/btimby/tpq?branch=master)
+
 Trivial Postgres Queue
 ======================
 
