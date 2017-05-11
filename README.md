@@ -125,7 +125,7 @@ $ # Then read the item to stdout.
 $ tpq consume queue_name
 {'foo': 'bar'}
 
-$ # And if you have trouble (or for logging). Debug output goes to stderr of course.
+$ # If you have trouble (or for logging). Debug output goes to stderr.
 $ TPQ_URL="postgresql://user:pass@localhost/foobar" tpq consume queue_name --debug
 Read database config from environment
 Parsing TPQ_URL
@@ -134,11 +134,11 @@ Attempting to read item
 Item read, returning
 {'foo': 'bar'}
 
-$ # And of course you can wait on the CLI too...
-$ # Forever
+$ # You can wait on the CLI too...
+$ # Forever:
 $ tpq consume queue_name --wait=0
 
-$ # Specified number of seconds.
+$ # Specified number of seconds:
 $ tpq consume queue_name --wait=5
 
 $ # The return code signals whether an item was received or not.
