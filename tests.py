@@ -329,9 +329,9 @@ class CommandTestCase(unittest.TestCase):
 
     def test_main_get(self):
         """Ensure we can get from a queue using CLI."""
-        stdout = StringIO()
-        item_put = {'test': 'test'}
+        item_put, stdout = {'test': 'test'}, StringIO()
         self.queue.put(item_put)
+
         try:
             main({
                 '--debug': False,
@@ -344,37 +344,49 @@ class CommandTestCase(unittest.TestCase):
             self.assertEqual(0, e.args[0])
         else:
             self.fail('Did not raise SystemExit')
+
         self.assertEqual(item_put, json.loads(stdout.getvalue()))
 
     def test_main_put_stdin(self):
         """Ensure we can put to a queue from stdin using CLI."""
         item_put = {'test': 'test'}
-        main({
-            '--debug': False,
-            '<name>': 'test',
-            'consume': False,
-            'produce': True,
-            '--file': '-',
-        }, stdin=StringIO(json.dumps(item_put)))
+
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'test',
+                'consume': False,
+                'produce': True,
+                '--file': '-',
+            }, stdin=StringIO(json.dumps(item_put)))
+        except SystemExit as e:
+            self.assertEqual(0, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
 
         with self.queue.get() as item_get:
             self.assertEqual(item_put, item_get)
 
     def test_main_put_file(self):
         """Ensure we can put to a queue from a file using CLI."""
-        """Ensure we can put to a queue using CLI."""
         item_put = {'test': 'test'}
+
         with tempfile.NamedTemporaryFile() as t:
             t.write(json.dumps(item_put).encode('utf-8'))
             t.flush()
 
-            main({
-                '--debug': False,
-                '<name>': 'test',
-                'consume': False,
-                'produce': True,
-                '--file': t.name,
-            }, stdin=StringIO(json.dumps(item_put)))
+            try:
+                main({
+                    '--debug': False,
+                    '<name>': 'test',
+                    'consume': False,
+                    'produce': True,
+                    '--file': t.name,
+                }, stdin=StringIO(json.dumps(item_put)))
+            except SystemExit as e:
+                self.assertEqual(0, e.args[0])
+            else:
+                self.fail('Did not raise SystemExit')
 
             with self.queue.get() as item_get:
                 self.assertEqual(item_put, item_get)

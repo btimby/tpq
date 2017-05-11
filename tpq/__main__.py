@@ -52,17 +52,22 @@ def produce(opt, stdin):
     except AttributeError:
         pass
     except Exception as e:
-        LOGGER.exception(e, exc_info=True)
-        return
+        LOGGER.exception('Could not decode data', exc_info=True)
+        sys.exit(1)
 
     try:
         json.loads(data)
     except ValueError as e:
         LOGGER.exception('JSON data expected in stdin', exc_info=True)
-        return
+        sys.exit(1)
 
-    put(opt['<name>'], data)
-
+    try:
+        put(opt['<name>'], data)
+    except Exception as e:
+        LOGGER.exception('Could not write to queue', exc_info=True)
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 def main(opt, stdin=sys.stdin, stdout=sys.stdout):
     """
