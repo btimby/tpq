@@ -1,15 +1,18 @@
 import logging
 import sys
+import json
 import threading
 import time
 import unittest
 
+from io import StringIO
+
 import psycopg2
 
-from tpq import (
-    Queue, QueueEmpty
-)
+import tpq
+
 from tpq.utils import get_db_env
+from tpq.__main__ import main
 
 
 # Useful to debug threading issues.
@@ -52,7 +55,7 @@ class ThreadedConsumer(threading.Thread):
                     self.items.append(item)
                 LOGGER.debug('Success')
             except Exception as e:
-                if isinstance(e, QueueEmpty):
+                if isinstance(e, tpq.QueueEmpty):
                     LOGGER.debug('Empty')
                 self.errors.append(e)
                 if self.exit:
@@ -120,7 +123,7 @@ class Tests(object):
 
         Queue should raise QueueEmpty when empty.
         """
-        with self.assertRaises(QueueEmpty):
+        with self.assertRaises(tpq.QueueEmpty):
             # Note that since this is a context manager, we MUST use with...
             with self.queue.get() as item:
                 print(item)
@@ -204,9 +207,10 @@ class ThreadedTests(object):
         Whether pooled or not, or threaded or not, waiting without a timeout
         should always work.
         """
-        c = ThreadedConsumer(self.queue, wait=0, exit=True)
+        c = ThreadedConsumer(self.queue, wait=0, once=True)
         # Make it wait...
         time.sleep(0.1)
+        self.assertTrue(c.is_alive())
         self.queue.put({'test': 'test'})
         c.stop()
         self.assertEqual(1, len(c.items))
@@ -218,7 +222,7 @@ class PooledTestCase(Tests, ThreadedTests, unittest.TestCase):
     """
 
     def setUp(self):
-        self.queue = Queue('test')
+        self.queue = tpq.Queue('test')
         self.queue.create()
         self.queue.clear()
 
@@ -242,7 +246,7 @@ class PooledTestCase(Tests, ThreadedTests, unittest.TestCase):
         c.stop()
         self.assertLess(1, time.time() - start)
         self.assertEqual(1, len(c.errors))
-        self.assertIsInstance(c.errors[0], QueueEmpty)
+        self.assertIsInstance(c.errors[0], tpq.QueueEmpty)
 
 
 class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
@@ -254,7 +258,7 @@ class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
         host, dbname, user, password = get_db_env()
         self.conn = psycopg2.connect(host=host, dbname=dbname, user=user,
                                      password=password)
-        self.queue = Queue('test', conn=self.conn)
+        self.queue = tpq.Queue('test', conn=self.conn)
         self.queue.clear()
 
     def tearDown(self):
@@ -271,9 +275,69 @@ class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
         self.assertEqual(1, len(c.errors))
         self.assertIsInstance(c.errors[0], Warning)
 
-
 # TODO: we need to test a shared connection, ensuring an open transaction is
 # not committed under put() or get() with or without wait.
+
+
+class ShortcutTestCase(unittest.TestCase):
+    def setUp(self):
+        self.queue = tpq.Queue('test')
+
+    def test_get(self):
+        item_put = {'test': 'test'}
+        self.queue.put(item_put)
+        item_get = tpq.get('test')
+        self.assertEqual(item_put, item_get)
+
+    def test_put(self):
+        item_put = {'test': 'test'}
+        tpq.put('test', item_put)
+        with self.queue.get('test') as item_get:
+            pass
+        self.assertEqual(item_put, item_get)
+
+    def test_create(self):
+        tpq.create('test')
+
+    def test_clear(self):
+        tpq.create('test')
+        tpq.clear('test')
+
+
+class CommandTestCase(unittest.TestCase):
+    def setUp(self):
+        self.queue = tpq.Queue('test')
+
+    def test_main_get(self):
+        stdout = StringIO()
+        item_put = {'test': 'test'}
+        self.queue.put(item_put)
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'test',
+                'consume': True,
+                'produce': False,
+                '--wait': False,
+            }, stdout=stdout)
+        except SystemExit as e:
+            self.assertEqual(0, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
+        self.assertEqual(item_put, json.loads(stdout.getvalue()))
+
+    def test_main_put(self):
+        item_put = {'test': 'test'}
+        main({
+            '--debug': False,
+            '<name>': 'test',
+            'consume': False,
+            'produce': True,
+            '--file': '-',
+        }, stdin=StringIO(json.dumps(item_put)))
+
+        with self.queue.get() as item_get:
+            self.assertEqual(item_put, item_get)
 
 if __name__ == '__main__':
     unittest.main()

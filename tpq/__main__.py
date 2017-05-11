@@ -18,30 +18,30 @@ from tpq import (
 )
 
 
-LOGGER = logging.getLogger('')
-LOGGER.setLevel(logging.INFO)
-LOGGER.addHandler(logging.StreamHandler(sys.stderr))
+LOGGER = logging.getLogger(__name__)
+LOGGER.addHandler(logging.NullHandler())
 
 
-def consume(opt):
+def consume(opt, stdout):
     """
     Read from queue.
     """
     try:
         # Print to stdout, errors are on stderr
-        print(get(opt['<name>'], wait=opt['--wait']))
+        item = get(opt['<name>'], wait=opt['--wait'])
+        stdout.write('%s\n' % json.dumps(item))
         sys.exit(0)
     except QueueEmpty:
         LOGGER.exception('Queue empty', exc_info=True)
         sys.exit(1)
 
 
-def produce(opt):
+def produce(opt, stdin):
     """
     Write to queue.
     """
     if opt['--file'] == '-':
-        data = sys.stdin.read()
+        data = stdin.read()
 
     else:
         with open(opt['--file'], 'r') as f:
@@ -56,7 +56,7 @@ def produce(opt):
     put(opt['<name>'], data)
 
 
-def main(opt):
+def main(opt, stdin=sys.stdin, stdout=sys.stdout):
     """
     tpq - Trivial Postgress Queue
 
@@ -77,13 +77,20 @@ def main(opt):
         LOGGER.setLevel(logging.DEBUG)
 
     if opt['consume']:
-        consume(opt)
+        consume(opt, stdout)
 
     elif opt['produce']:
-        produce(opt)
+        produce(opt, stdin)
+
+    else:
+        LOGGER.warning('Nothing to do')
 
 
 if __name__ == '__main__':
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler(sys.stderr))
+
     try:
         opt = docopt(main.__doc__)
         opt = Schema({

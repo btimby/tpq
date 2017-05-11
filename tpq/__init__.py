@@ -13,6 +13,7 @@ import threading
 from select import select
 from queue import Empty as QueueEmpty
 from contextlib import contextmanager
+from collections import UserDict
 
 from psycopg2.extras import Json
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -27,6 +28,34 @@ from tpq.sql import (
 
 LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
+
+
+class QueueItem(UserDict):
+    """
+    Queue Item.
+
+    Returned by get(). Handles transaction implicitly via context manager or
+    explicitly. Allowing caller to use either:
+
+        item = queue.get()
+        ...
+        item.done()
+
+    or:
+
+        with queue.get() as item:
+            ...
+    """
+    def __init__(self, conn, data={}):
+        super().__init__(data)
+        self.conn = conn
+        self.t = transaction(conn)
+
+    def __enter__(self):
+        self.ctx = transaction(self.conn).__enter__()
+
+    def __exit__(self, *args):
+        self.ctx.__exit__(*args)
 
 
 class Queue(object):
@@ -138,7 +167,12 @@ class Queue(object):
             cursor.execute(PUT, {'name': self.table, 'data': data})
             return cursor.fetchone()[0]
 
-    # TODO: allow this to be used as a context manager or not.
+    # TODO: allow this to be used as a context manager or not. To do this, we
+    # would need to subclass UserDict and make _it_ a context manager. We could
+    # then copy our JSON decoded object to that and return it.
+    #
+    # It would then be the caller's responsibility to commit, via Job.commit()
+    # or the connection directly. Job.commit() would be called by __exit__().
     @contextmanager
     def get(self, wait=-1):
         """
@@ -278,7 +312,8 @@ def get(name, wait=-1, **kwargs):
     one item, use a dedicated queue instance.
     """
     with Queue(name, **kwargs) as q:
-        return q.get(wait=wait)
+        with q.get(wait=wait) as item:
+            return item
 
 
 def clear(name, **kwargs):
