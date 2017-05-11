@@ -13,9 +13,7 @@ import logging
 from docopt import docopt, DocoptExit
 from schema import Schema, Use, SchemaError
 
-from tpq import (
-    QueueEmpty, get, put
-)
+import tpq
 
 
 LOGGER = logging.getLogger(__name__)
@@ -28,12 +26,16 @@ def consume(opt, stdout):
     """
     try:
         # Print to stdout, errors are on stderr
-        item = get(opt['<name>'], wait=opt['--wait'])
+        item = tpq.get(opt['<name>'], wait=opt['--wait'])
         stdout.write('%s\n' % json.dumps(item))
-        sys.exit(0)
-    except QueueEmpty:
-        LOGGER.exception('Queue empty', exc_info=True)
+    except tpq.QueueEmpty:
+        LOGGER.error('Queue empty')
         sys.exit(1)
+    except Exception as e:
+        LOGGER.exception('Could not read from queue', exc_info=True)
+        sys.exit(1)
+    else:
+        sys.exit(0)
 
 
 def produce(opt, stdin):
@@ -58,11 +60,14 @@ def produce(opt, stdin):
     try:
         json.loads(data)
     except ValueError as e:
-        LOGGER.exception('JSON data expected in stdin', exc_info=True)
+        LOGGER.exception('Could not parse data', exc_info=True)
         sys.exit(1)
 
+    if opt['--create']:
+        tpq.create(opt['<name>'])
+
     try:
-        put(opt['<name>'], data)
+        tpq.put(opt['<name>'], data)
     except Exception as e:
         LOGGER.exception('Could not write to queue', exc_info=True)
         sys.exit(1)
@@ -75,7 +80,7 @@ def main(opt, stdin=sys.stdin, stdout=sys.stdout):
     tpq - Trivial Postgress Queue
 
     Usage:
-        tpq produce <name> [--debug --file=<path>]
+        tpq produce <name> [--debug --file=<path> --create]
         tpq consume <name> [--debug --wait=<seconds>]
 
     Commands:
@@ -85,6 +90,7 @@ def main(opt, stdin=sys.stdin, stdout=sys.stdout):
     Options:
         --file=<path>     The file containing JSON or - for stdin [default: -]
         --wait=<seconds>  Seconds to wait for item [default: -1]
+        --create          Attempt to create the queue before writing to it
         --debug           Print more output.
     """
     if opt['--debug']:
@@ -113,6 +119,7 @@ if __name__ == '__main__':
             object: object,
         }).validate(opt)
     except (SchemaError, DocoptExit) as e:
-        print(e)
+        LOGGER.error(str(e))
+        sys.exit(1)
     else:
         main(opt)

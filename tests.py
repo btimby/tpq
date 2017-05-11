@@ -1,3 +1,4 @@
+import os
 import logging
 import sys
 import json
@@ -6,13 +7,16 @@ import time
 import tempfile
 import unittest
 
-from io import StringIO
+from io import StringIO, BytesIO
+from contextlib import contextmanager
 
 import psycopg2
 
 import tpq
 
-from tpq.utils import get_db_env
+from tpq.utils import (
+    get_db_env, transaction, savepoint
+)
 from tpq.__main__ import main
 
 
@@ -20,10 +24,31 @@ from tpq.__main__ import main
 logging.basicConfig(
     stream=sys.stderr,
     # Change level to DEBUG here if you need to.
-    level=logging.ERROR,
+    level=logging.CRITICAL,
     format='%(thread)d: %(message)s'
 )
 LOGGER = logging.getLogger(__name__)
+
+
+@contextmanager
+def setenv(add, remove):
+    _environ = dict(os.environ)
+    os.environ.update(add)
+    for k in remove:
+        os.environ.pop(k, None)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(_environ)
+
+
+class TestError(Exception):
+    """
+    Error used for some tests.
+    """
+
+    pass
 
 
 class ThreadedConsumer(threading.Thread):
@@ -358,6 +383,7 @@ class CommandTestCase(unittest.TestCase):
                 'consume': False,
                 'produce': True,
                 '--file': '-',
+                '--create': False,
             }, stdin=StringIO(json.dumps(item_put)))
         except SystemExit as e:
             self.assertEqual(0, e.args[0])
@@ -382,6 +408,7 @@ class CommandTestCase(unittest.TestCase):
                     'consume': False,
                     'produce': True,
                     '--file': t.name,
+                    '--create': False,
                 }, stdin=StringIO(json.dumps(item_put)))
             except SystemExit as e:
                 self.assertEqual(0, e.args[0])
@@ -390,6 +417,151 @@ class CommandTestCase(unittest.TestCase):
 
             with self.queue.get() as item_get:
                 self.assertEqual(item_put, item_get)
+
+    def test_main_put_file_json_error(self):
+        """Ensure put fails with invalid json."""
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'test',
+                'consume': False,
+                'produce': True,
+                '--file': '/dev/null',
+                '--create': False,
+            })
+        except SystemExit as e:
+            self.assertEqual(1, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
+
+    def test_main_put_file_decode_error(self):
+        """Ensure put fails with invalid data."""
+        with open('/dev/random', 'rb') as r:
+            try:
+                main({
+                    '--debug': False,
+                    '<name>': 'test',
+                    'consume': False,
+                    'produce': True,
+                    '--file': '-',
+                    '--create': False,
+                }, stdin=BytesIO(r.read(10)))
+            except SystemExit as e:
+                self.assertEqual(1, e.args[0])
+            else:
+                self.fail('Did not raise SystemExit')
+
+    def test_main_get_fail_emptyqueue(self):
+        """Ensure get fails when queue is empty."""
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'test',
+                'consume': True,
+                'produce': False,
+                '--file': '-',
+                '--create': False,
+            })
+        except SystemExit as e:
+            self.assertEqual(1, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
+
+    def test_main_get_fail_missing(self):
+        """Ensure get fails when queue is missing."""
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'bubba',
+                'consume': True,
+                'produce': False,
+                '--file': '-',
+                '--create': False,
+            })
+        except SystemExit as e:
+            self.assertEqual(1, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
+
+    def test_main_put_fail_missing(self):
+        """Ensure put fails when queue is missing."""
+        try:
+            main({
+                '--debug': False,
+                '<name>': 'bubba',
+                'consume': False,
+                'produce': True,
+                '--file': '-',
+                '--create': False,
+            }, stdin=StringIO('{"test": "test"'))
+        except SystemExit as e:
+            self.assertEqual(1, e.args[0])
+        else:
+            self.fail('Did not raise SystemExit')
+
+
+
+class TransactionTestCase(unittest.TestCase):
+    def setUp(self):
+        host, dbname, user, password = get_db_env()
+        self.conn = psycopg2.connect(host=host, dbname=dbname, user=user,
+                                     password=password)
+        with self.conn.cursor() as cursor:
+            cursor.execute('CREATE TABLE '
+                           'IF NOT EXISTS test_t ('
+                               'id serial primary key, '
+                               'v varchar(1) not null'
+                            ')')
+            self.conn.commit()
+
+    def tearDown(self):
+        with self.conn.cursor() as cursor:
+            cursor.execute('DROP TABLE test_t')
+            self.conn.commit()
+
+    def test_transaction(self):
+        """If transaction works, row should disappear after leaving context."""
+        with self.assertRaises(TestError):
+            with transaction(self.conn) as cursor:
+                cursor.execute('INSERT INTO test_t (v) '
+                               'VALUES (\'a\')')
+                raise TestError()
+
+        with self.conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) '
+                           'FROM test_t '
+                           'WHERE v = \'a\'')
+            self.assertEqual(0, cursor.fetchone()[0])
+
+    def test_savepoint(self):
+        """If savepoint works, row should disappear after leaving context."""
+        with self.assertRaises(TestError):
+            with savepoint(self.conn) as cursor:
+                cursor.execute('INSERT INTO test_t (v) '
+                               'VALUES (\'a\')')
+                raise TestError()
+
+        with self.conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) '
+                           'FROM test_t '
+                           'WHERE v = \'a\'')
+            self.assertEqual(0, cursor.fetchone()[0])
+
+
+class DBConfigTestCase(unittest.TestCase):
+    def test_url(self):
+        with setenv({'TPQ_URL': 'postgresql://foo:bar@baz/qux'}):
+            self.assertEqual(('baz', 'qux', 'foo', 'bar'), get_db_env())
+
+
+    def test_url(self):
+        with setenv({
+            'TPQ_HOST': 'baz',
+            'TPQ_DB': 'qux',
+            'TPQ_USER': 'foo',
+            'TPQ_PASS': 'bar',
+        }, ('TPQ_URL', )):
+            self.assertEqual(('baz', 'qux', 'foo', 'bar'), get_db_env())
 
 
 if __name__ == '__main__':
