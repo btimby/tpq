@@ -69,6 +69,7 @@ def produce(opt, stdin):
     else:
         sys.exit(0)
 
+
 def main(opt, stdin=sys.stdin, stdout=sys.stdout):
     """
     tpq - Trivial Postgress Queue
