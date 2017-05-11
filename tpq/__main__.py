@@ -32,7 +32,8 @@ def consume(opt, stdout):
         LOGGER.error('Queue empty')
         sys.exit(1)
     except Exception as e:
-        LOGGER.exception('Could not read from queue', exc_info=True)
+        LOGGER.error('Could not read from queue')
+        LOGGER.debug(e, exc_info=True)
         sys.exit(1)
     else:
         sys.exit(0)
@@ -54,13 +55,15 @@ def produce(opt, stdin):
     except AttributeError:
         pass
     except Exception as e:
-        LOGGER.exception('Could not decode data', exc_info=True)
+        LOGGER.error('Could not decode data')
+        LOGGER.debug(e, exc_info=True)
         sys.exit(1)
 
     try:
         json.loads(data)
     except ValueError as e:
-        LOGGER.exception('Could not parse data', exc_info=True)
+        LOGGER.error('Could not parse json')
+        LOGGER.debug(e, exc_info=True)
         sys.exit(1)
 
     if opt['--create']:
@@ -69,7 +72,8 @@ def produce(opt, stdin):
     try:
         tpq.put(opt['<name>'], data)
     except Exception as e:
-        LOGGER.exception('Could not write to queue', exc_info=True)
+        LOGGER.error('Could not write to queue')
+        LOGGER.debug(e, exc_info=True)
         sys.exit(1)
     else:
         sys.exit(0)
