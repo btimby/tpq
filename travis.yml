@@ -1,0 +1,20 @@
+language: python
+env:
+  global:
+    - TPQ_URL=postgresql://postgres@localhost/tpq
+  matrix:
+    - DJANGO=1.10
+services:
+  - postgresql
+addons:
+  postgresql: "9.5"
+python:
+  - "3.5"
+install:
+  - make deps
+before_script:
+  - psql -c 'create database tpq' -U postgres
+script:
+  - make travis
+after_success:
+  - make coveralls
