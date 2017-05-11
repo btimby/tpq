@@ -91,6 +91,7 @@ class ThreadedProducer(threading.Thread):
 class QueueTestCase(unittest.TestCase):
     def setUp(self):
         self.queue = Queue('test')
+        self.queue.create()
         self.queue.clear()
 
     def tearDown(self):
