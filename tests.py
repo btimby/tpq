@@ -363,7 +363,7 @@ class CommandTestCase(unittest.TestCase):
                 '<name>': 'test',
                 'consume': True,
                 'produce': False,
-                '--wait': False,
+                '--wait': -1,
             }, stdout=stdout)
         except SystemExit as e:
             self.assertEqual(0, e.args[0])
@@ -453,7 +453,6 @@ class CommandTestCase(unittest.TestCase):
 
     def test_main_get_fail_emptyqueue(self):
         """Ensure get fails when queue is empty."""
-        import pdb; pdb.set_trace()
         try:
             main({
                 '--debug': False,
@@ -461,6 +460,7 @@ class CommandTestCase(unittest.TestCase):
                 'consume': True,
                 'produce': False,
                 '--create': False,
+                '--wait': -1,
             })
         except SystemExit as e:
             self.assertEqual(1, e.args[0])
@@ -475,7 +475,7 @@ class CommandTestCase(unittest.TestCase):
                 '<name>': 'bubba',
                 'consume': True,
                 'produce': False,
-                '--file': '-',
+                '--wait': False,
                 '--create': False,
             })
         except SystemExit as e:
