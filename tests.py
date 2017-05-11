@@ -453,13 +453,13 @@ class CommandTestCase(unittest.TestCase):
 
     def test_main_get_fail_emptyqueue(self):
         """Ensure get fails when queue is empty."""
+        import pdb; pdb.set_trace()
         try:
             main({
                 '--debug': False,
                 '<name>': 'test',
                 'consume': True,
                 'produce': False,
-                '--file': '-',
                 '--create': False,
             })
         except SystemExit as e:
@@ -498,7 +498,6 @@ class CommandTestCase(unittest.TestCase):
             self.assertEqual(1, e.args[0])
         else:
             self.fail('Did not raise SystemExit')
-
 
 
 class TransactionTestCase(unittest.TestCase):
