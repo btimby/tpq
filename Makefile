@@ -12,6 +12,8 @@ lint: venv
 
 dependencies:
 	pip install -r requirements.txt
+	pip install flake8
+	pip install coverage
 
 travis:
 	flake8 tpq
