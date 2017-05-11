@@ -280,8 +280,17 @@ class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
 
 
 class ShortcutTestCase(unittest.TestCase):
+    """
+    Test module-level shortcut functions.
+    """
+
     def setUp(self):
         self.queue = tpq.Queue('test')
+        self.queue.create()
+
+    def tearDown(self):
+        self.queue.clear()
+        self.queue.close()
 
     def test_get(self):
         item_put = {'test': 'test'}
@@ -305,10 +314,20 @@ class ShortcutTestCase(unittest.TestCase):
 
 
 class CommandTestCase(unittest.TestCase):
+    """
+    Test Command Line Interface.
+    """
+
     def setUp(self):
         self.queue = tpq.Queue('test')
+        self.queue.create()
+
+    def tearDown(self):
+        self.queue.clear()
+        self.queue.close()
 
     def test_main_get(self):
+        """Ensure we can get from a queue using CLI."""
         stdout = StringIO()
         item_put = {'test': 'test'}
         self.queue.put(item_put)
@@ -327,6 +346,7 @@ class CommandTestCase(unittest.TestCase):
         self.assertEqual(item_put, json.loads(stdout.getvalue()))
 
     def test_main_put(self):
+        """Ensure we can put to a queue using CLI."""
         item_put = {'test': 'test'}
         main({
             '--debug': False,
@@ -338,6 +358,7 @@ class CommandTestCase(unittest.TestCase):
 
         with self.queue.get() as item_get:
             self.assertEqual(item_put, item_get)
+
 
 if __name__ == '__main__':
     unittest.main()
