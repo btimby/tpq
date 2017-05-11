@@ -36,7 +36,7 @@ def produce(opt):
         data = sys.stdin.read()
 
     else:
-        with file(opt['--file'], 'r') as f:
+        with open(opt['--file'], 'r') as f:
             data = f.read()
 
     try:
