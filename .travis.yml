@@ -11,7 +11,7 @@ addons:
 python:
   - "3.5"
 install:
-  - make deps
+  - make dependencies
 before_script:
   - psql -c 'create database tpq' -U postgres
 script:
