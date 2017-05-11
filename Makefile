@@ -13,7 +13,7 @@ lint: venv
 dependencies:
 	pip install -r requirements.txt
 
-travis: dependencies
+travis:
 	flake8 tpq
 	coverage python -m tests
 
