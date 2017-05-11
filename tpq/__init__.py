@@ -190,8 +190,8 @@ class Queue(object):
                             # sharing caller's connection with potentially open
                             # transaction. The safe this is to raise.
                             raise Warning('Using shared connection and '
-                                          'autocommit=False. Use a pool if you '
-                                          'wish to wait with a timeout')
+                                          'autocommit=False. Use a pool if you'
+                                          ' wish to wait with a timeout')
                         # Pooled, so we can change autocommit.
                         saved = (conn.isolation_level, conn.autocommit)
                         # This is needed for LISTEN to work properly...
