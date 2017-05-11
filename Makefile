@@ -17,5 +17,4 @@ dependencies:
 
 travis:
 	flake8 tpq
-	coverage python -m tests
-
+	coverage run tests.py
