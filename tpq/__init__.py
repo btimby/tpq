@@ -13,7 +13,7 @@ import threading
 from select import select
 from queue import Empty as QueueEmpty
 from contextlib import contextmanager
-from collections import UserDict
+# from collections import UserDict
 
 from psycopg2.extras import Json
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
@@ -30,32 +30,32 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
-class QueueItem(UserDict):
-    """
-    Queue Item.
+# class QueueItem(UserDict):
+#     """
+#     Queue Item.
 
-    Returned by get(). Handles transaction implicitly via context manager or
-    explicitly. Allowing caller to use either:
+#     Returned by get(). Handles transaction implicitly via context manager or
+#     explicitly. Allowing caller to use either:
 
-        item = queue.get()
-        ...
-        item.done()
+#         item = queue.get()
+#         ...
+#         item.done()
 
-    or:
+#     or:
 
-        with queue.get() as item:
-            ...
-    """
-    def __init__(self, conn, data={}):
-        super().__init__(data)
-        self.conn = conn
-        self.t = transaction(conn)
+#         with queue.get() as item:
+#             ...
+#     """
+#     def __init__(self, conn, data={}):
+#         super().__init__(data)
+#         self.conn = conn
+#         self.t = transaction(conn)
 
-    def __enter__(self):
-        self.ctx = transaction(self.conn).__enter__()
+#     def __enter__(self):
+#         self.ctx = transaction(self.conn).__enter__()
 
-    def __exit__(self, *args):
-        self.ctx.__exit__(*args)
+#     def __exit__(self, *args):
+#         self.ctx.__exit__(*args)
 
 
 class Queue(object):

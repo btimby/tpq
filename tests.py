@@ -493,7 +493,7 @@ class CommandTestCase(unittest.TestCase):
                 'produce': True,
                 '--file': '-',
                 '--create': False,
-            }, stdin=StringIO('{"test": "test"'))
+            }, stdin=StringIO('{"test": "test"}'))
         except SystemExit as e:
             self.assertEqual(1, e.args[0])
         else:
