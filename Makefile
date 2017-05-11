@@ -14,7 +14,11 @@ dependencies:
 	pip install -r requirements.txt
 	pip install flake8
 	pip install coverage
+	pip install coveralls
 
 travis:
 	flake8 tpq
 	coverage run tests.py
+
+coveralls:
+	coveralls -v
