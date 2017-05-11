@@ -3,6 +3,7 @@ import sys
 import json
 import threading
 import time
+import tempfile
 import unittest
 
 from io import StringIO
@@ -345,8 +346,8 @@ class CommandTestCase(unittest.TestCase):
             self.fail('Did not raise SystemExit')
         self.assertEqual(item_put, json.loads(stdout.getvalue()))
 
-    def test_main_put(self):
-        """Ensure we can put to a queue using CLI."""
+    def test_main_put_stdin(self):
+        """Ensure we can put to a queue from stdin using CLI."""
         item_put = {'test': 'test'}
         main({
             '--debug': False,
@@ -358,6 +359,25 @@ class CommandTestCase(unittest.TestCase):
 
         with self.queue.get() as item_get:
             self.assertEqual(item_put, item_get)
+
+    def test_main_put_file(self):
+        """Ensure we can put to a queue from a file using CLI."""
+        """Ensure we can put to a queue using CLI."""
+        item_put = {'test': 'test'}
+        with tempfile.NamedTemporaryFile() as t:
+            t.write(json.dumps(item_put).encode('utf-8'))
+            t.flush()
+
+            main({
+                '--debug': False,
+                '<name>': 'test',
+                'consume': False,
+                'produce': True,
+                '--file': t.name,
+            }, stdin=StringIO(json.dumps(item_put)))
+
+            with self.queue.get() as item_get:
+                self.assertEqual(item_put, item_get)
 
 
 if __name__ == '__main__':

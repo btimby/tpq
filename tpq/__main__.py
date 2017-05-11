@@ -44,8 +44,16 @@ def produce(opt, stdin):
         data = stdin.read()
 
     else:
-        with open(opt['--file'], 'r') as f:
+        with open(opt['--file'], 'rb') as f:
             data = f.read()
+
+    try:
+        data = data.decode('utf-8')
+    except AttributeError:
+        pass
+    except Exception as e:
+        LOGGER.exception(e, exc_info=True)
+        return
 
     try:
         json.loads(data)
