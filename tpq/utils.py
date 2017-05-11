@@ -19,29 +19,36 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.addHandler(logging.NullHandler())
 
 
+# TODO: use **kwargs and dict
+def get_db_env():
+    LOGGER.debug('Read database config from environment')
+    url = os.environ.get('TPQ_URL', None)
+    if url:
+        LOGGER.debug('Parsing TPQ_URL')
+        urlp = urlparse(url)
+        host = urlp.hostname
+        dbname = urlp.path.strip('/')
+        user = urlp.username
+        password = urlp.password
+    else:
+        LOGGER.debug('Looking for TPQ_{HOST, DB, USER, PASS}')
+        host = os.environ.get('TPQ_HOST', None)
+        dbname = os.environ.get('TPQ_DB', None)
+        user = os.environ.get('TPQ_USER', None)
+        password = os.environ.get('TPQ_PASS', None)
+    if any((host, dbname, user, password)):
+        LOGGER.debug('Database config found')
+    return (host, dbname, user, password)
+
+
+# TODO: use **kwargs and dict
 def connect(host=None, dbname=None, user=None, password=None, minconn=1,
             maxconn=4):
     """
     Attempts to connect to Postgres.
     """
     if not any((host, dbname, user, password)):
-        LOGGER.debug('Read database config from environment')
-        url = os.environ.get('TPQ_URL', None)
-        if url:
-            LOGGER.debug('Parsing TPQ_URL')
-            urlp = urlparse(url)
-            host = urlp.hostname
-            dbname = urlp.path.strip('/')
-            user = urlp.username
-            password = urlp.password
-        else:
-            LOGGER.debug('Looking for TPQ_{HOST, DB, USER, PASS}')
-            host = os.environ.get('TPQ_HOST', None)
-            dbname = os.environ.get('TPQ_DB', None)
-            user = os.environ.get('TPQ_USER', None)
-            password = os.environ.get('TPQ_PASS', None)
-        if any((host, dbname, user, password)):
-            LOGGER.debug('Database config found')
+        host, dbname, user, password = get_db_env()
     if not any((host, dbname, user, password)):
         raise Exception('No database connection provided or configured.')
     return ThreadedConnectionPool(minconn, maxconn, host=host, dbname=dbname,

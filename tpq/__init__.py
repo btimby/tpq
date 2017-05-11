@@ -65,6 +65,27 @@ class Queue(object):
         self.close()
 
     @contextmanager
+    def _connect(self):
+        if self.pool:
+            conn = self.pool.getconn()
+            try:
+                yield conn
+            finally:
+                # Return connection to pool
+                self.pool.putconn(conn)
+        elif self.conn:
+            # Not perfect, but if we see two distinct thread ids through here
+            # while using a shared connection, warn the user. While this is
+            # technically OK, it is NOT safe from a transactional standpoint.
+            self.threads.add(threading.get_ident())
+            if len(self.threads) > 0:
+                LOGGER.warning('Possible threading with connection sharing. '
+                               'Use a pool instead.')
+            yield self.conn
+        else:
+            raise AssertionError('self.conn or self.pool must be set')
+
+    @contextmanager
     def _atomic(self):
         """
         Manage savepoint or transaction.
@@ -73,28 +94,12 @@ class Queue(object):
         use a different atomic method. This context manager delegates to the
         proper one.
         """
-        if self.conn:
-            # Not perfect, but if we see two distinct thread ids through here
-            # while using a shared connection, warn the user. While this is
-            # technically OK, it is NOT safe from a transactional standpoint.
-            self.threads.add(threading.get_ident())
-            if len(self.threads) > 0:
-                LOGGER.warning('Possible threading with connection sharing. '
-                               'Use a pool instead.')
-            # Use a savepoint with a shared connection so we don't affect
-            # possible in-flight transactions.
-            with savepoint(self.conn) as cursor:
+        if self.pool:
+            with self._connect() as conn, transaction(conn) as cursor:
                 yield cursor
         else:
-            conn = self.pool.getconn()
-            try:
-                # Use a true transaction with a pool since we "own" the
-                # connection
-                with transaction(conn) as cursor:
-                    yield cursor
-            finally:
-                # Return connection to pool
-                self.pool.putconn(conn)
+            with self._connect() as conn, savepoint(conn) as cursor:
+                yield cursor
 
     def close(self):
         """
@@ -133,6 +138,7 @@ class Queue(object):
             cursor.execute(PUT, {'name': self.table, 'data': data})
             return cursor.fetchone()[0]
 
+    # TODO: allow this to be used as a context manager or not.
     @contextmanager
     def get(self, wait=-1):
         """
@@ -162,26 +168,55 @@ class Queue(object):
                 LOGGER.debug('Item read, returning')
                 return row[0]
 
-        def _wait(cursor):
+        def _wait():
             """Uses PostgreSQL LISTEN and select() to wait for item."""
-            # TODO: I want to make sure this does not commit any open
-            # transactions. If so, I will need to use a separate connection.
-            saved = (self.conn.isolation_level, self.conn.autocommit)
-            # This is needed for LISTEN to work properly...
-            self.conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
-            try:
-                cursor.execute('LISTEN "%s"', (self.table, ))
-                args = [[self.conn], [], []]
+            with self._connect() as conn:
+                # Things are a bit hairy. We need autocommit for async LISTEN,
+                # which we use for wait timeout. Without async LISTEN, we have
+                # only blocking LISTEN, which is only good for indefinite
+                # timeout. So if autocommit is False while wait is > 0, we want
+                # to set autocommit to True BUT, if we do so on a shared
+                # connection, we will implicitly COMMIT the caller's open
+                # transaction (if there is one). This is undesirable, so we
+                # will avoid doing so by raising a Warning.
                 if wait != 0:
-                    # 0 is wait forever, select() requires we omit timeout.
-                    args.append(wait)
-                if not any(select(*args)):
-                    # Timeout expired while waiting. We know there is no
-                    # wait time remaining, so we can just raise and be done.
-                    raise QueueEmpty()
-            finally:
-                cursor.execute('UNLISTEN "%s"', (self.table, ))
-                self.conn.isolation_level, self.conn.autocommit = saved
+                    saved = None
+                    # Caller requested a timeout.
+                    if not conn.autocommit:
+                        # But autocommit is False.
+                        if not self.pool:
+                            # But we cannot provide a timeout since autocommit
+                            # is False, we dare not change it since we are
+                            # sharing caller's connection with potentially open
+                            # transaction. The safe this is to raise.
+                            raise Warning('Using shared connection and '
+                                          'autocommit=False. Use a pool if you '
+                                          'wish to wait with a timeout')
+                        # Pooled, so we can change autocommit.
+                        saved = (conn.isolation_level, conn.autocommit)
+                        # This is needed for LISTEN to work properly...
+                        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+                    # Finally do our async LISTEN.
+                    with conn.cursor() as cursor:
+                        cursor.execute('LISTEN "%s"', (self.table, ))
+                        try:
+                            if not any(select([conn], [], [], wait)):
+                                # Timeout expired while waiting. We know there
+                                # is no wait time remaining, so we can just
+                                # raise and be done.
+                                raise QueueEmpty()
+                            # A result was returned, so we exit, which will
+                            # loop back to _get().
+                        finally:
+                            cursor.execute('UNLISTEN "%s"', (self.table, ))
+                            if saved:
+                                # Restore before returning to pool, unsure if
+                                # this is strictly necessary.
+                                conn.isolation_level, conn.autocommit = saved
+                else:
+                    # Wait is 0, just do blocking LISTEN
+                    with conn.cursor() as cursor:
+                        cursor.execute('LISTEN "%s"', (self.table, ))
 
         while True:
             # Record our time so we can use it to calculate how long we have
@@ -207,8 +242,7 @@ class Queue(object):
                 LOGGER.debug('Waiting indefinitely')
             else:
                 LOGGER.debug('Waiting for %ss', wait)
-            with self._atomic() as cursor:
-                _wait(cursor)
+            _wait()
 
             # There is a possible race condition, listen might return, but
             # another listener scoops us. Therefore, we may end up waiting some

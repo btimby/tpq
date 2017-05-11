@@ -4,9 +4,12 @@ import threading
 import time
 import unittest
 
+import psycopg2
+
 from tpq import (
     Queue, QueueEmpty
 )
+from tpq.utils import get_db_env
 
 
 # Useful to debug threading issues.
@@ -20,12 +23,18 @@ LOGGER = logging.getLogger(__name__)
 
 
 class ThreadedConsumer(threading.Thread):
-    def __init__(self, queue, wait=-1, work=0, exit=False):
+    """
+    Helper to get() items from queue on a thread.
+    """
+
+    def __init__(self, queue, wait=-1, work=0, exit=False, once=False):
         self.queue = queue
         self.wait = wait
         self.work = work
         self.exit = exit
+        self.once = once
         self.items = []
+        self.errors = []
         self.loops = 0
         self.stopping = threading.Event()
         threading.Thread.__init__(self)
@@ -42,11 +51,14 @@ class ThreadedConsumer(threading.Thread):
                     LOGGER.debug('got: %s', item)
                     self.items.append(item)
                 LOGGER.debug('Success')
-            except QueueEmpty:
-                LOGGER.debug('Empty')
+            except Exception as e:
+                if isinstance(e, QueueEmpty):
+                    LOGGER.debug('Empty')
+                self.errors.append(e)
                 if self.exit:
                     LOGGER.debug('Exiting')
-                    break
+                    self.stopping.set()
+                    continue
             else:
                 # Interruptable sleep. Simulates working on a task with txn
                 # open.
@@ -54,6 +66,9 @@ class ThreadedConsumer(threading.Thread):
                 self.stopping.wait(self.work)
                 LOGGER.debug('Awoke')
                 LOGGER.debug('Commited')
+            if self.once:
+                LOGGER.debug('Exiting')
+                self.stopping.set()
             self.loops += 1
         LOGGER.debug('Stopping')
 
@@ -65,8 +80,13 @@ class ThreadedConsumer(threading.Thread):
 
 
 class ThreadedProducer(threading.Thread):
-    def __init__(self, queue, items):
+    """
+    Helper to put items in queue on a thread.
+    """
+
+    def __init__(self, queue, items, work=0):
         self.queue = queue
+        self.work = work
         self.items = items[:]
         self.stopping = threading.Event()
         threading.Thread.__init__(self)
@@ -79,6 +99,7 @@ class ThreadedProducer(threading.Thread):
             item = self.items.pop(0)
             LOGGER.debug('put: %s', item)
             self.queue.put(item)
+            self.stopping.wait(self.work)
         LOGGER.debug('Stopping')
 
     def stop(self):
@@ -88,14 +109,27 @@ class ThreadedProducer(threading.Thread):
         self.join()
 
 
-class QueueTestCase(unittest.TestCase):
-    def setUp(self):
-        self.queue = Queue('test')
-        self.queue.create()
-        self.queue.clear()
+class Tests(object):
+    """
+    Test normal operations.
+    """
 
-    def tearDown(self):
-        self.queue.clear()
+    def test_empty(self):
+        """
+        Ensure empty queue behavior is correct.
+
+        Queue should raise QueueEmpty when empty.
+        """
+        with self.assertRaises(QueueEmpty):
+            # Note that since this is a context manager, we MUST use with...
+            with self.queue.get() as item:
+                print(item)
+
+
+class ThreadedTests(object):
+    """
+    Test thread interactions.
+    """
 
     def test_skip(self):
         """
@@ -155,9 +189,7 @@ class QueueTestCase(unittest.TestCase):
         self.assertEqual(put, c.items)
 
     def test_len(self):
-        """
-        Ensure len() works for queue.
-        """
+        """Ensure len() works for queue."""
         self.assertEqual(0, len(self.queue))
         ThreadedProducer(self.queue, [{'a': 'b'} for i in range(10)]).join()
         self.assertEqual(10, len(self.queue))
@@ -165,6 +197,83 @@ class QueueTestCase(unittest.TestCase):
         c.join()
         self.assertEqual(10, len(c.items))
         self.assertEqual(0, len(self.queue))
+
+    def test_wait_forever(self):
+        """Ensure waiting forever works.
+
+        Whether pooled or not, or threaded or not, waiting without a timeout
+        should always work.
+        """
+        c = ThreadedConsumer(self.queue, wait=0, exit=True)
+        # Make it wait...
+        time.sleep(0.1)
+        self.queue.put({'test': 'test'})
+        c.stop()
+        self.assertEqual(1, len(c.items))
+
+
+class PooledTestCase(Tests, ThreadedTests, unittest.TestCase):
+    """
+    Test queue with connection pool.
+    """
+
+    def setUp(self):
+        self.queue = Queue('test')
+        self.queue.create()
+        self.queue.clear()
+
+    def tearDown(self):
+        self.queue.clear()
+        self.queue.close()
+
+    def test_wait_timeout_interrupted(self):
+        """We should be able to wait just fine."""
+        c = ThreadedConsumer(self.queue, wait=10)
+        # Make it wait...
+        time.sleep(0.1)
+        self.queue.put({'test': 'test'})
+        c.stop()
+        self.assertEqual(1, len(c.items))
+        self.assertIsInstance(c.items[0], dict)
+
+    def test_wait_timeout_expires(self):
+        start = time.time()
+        c = ThreadedConsumer(self.queue, wait=1, once=True)
+        c.stop()
+        self.assertLess(1, time.time() - start)
+        self.assertEqual(1, len(c.errors))
+        self.assertIsInstance(c.errors[0], QueueEmpty)
+
+
+class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
+    """
+    Test queue with shared connection.
+    """
+
+    def setUp(self):
+        host, dbname, user, password = get_db_env()
+        self.conn = psycopg2.connect(host=host, dbname=dbname, user=user,
+                                     password=password)
+        self.queue = Queue('test', conn=self.conn)
+        self.queue.clear()
+
+    def tearDown(self):
+        self.queue.clear()
+        self.conn.close()
+
+    def test_wait_timeout(self):
+        """This one should result in a warning."""
+        c = ThreadedConsumer(self.queue, wait=10, exit=True)
+        # Make it wait...
+        time.sleep(0.1)
+        self.queue.put({'test': 'test'})
+        c.stop()
+        self.assertEqual(1, len(c.errors))
+        self.assertIsInstance(c.errors[0], Warning)
+
+
+# TODO: we need to test a shared connection, ensuring an open transaction is
+# not committed under put() or get() with or without wait.
 
 if __name__ == '__main__':
     unittest.main()
