@@ -4,7 +4,9 @@ import threading
 import time
 import unittest
 
-import tpq
+from tpq import (
+    Queue, QueueEmpty
+)
 
 
 # Useful to debug threading issues.
@@ -40,13 +42,14 @@ class ThreadedConsumer(threading.Thread):
                     LOGGER.debug('got: %s', item)
                     self.items.append(item)
                 LOGGER.debug('Success')
-            except tpq.QueueEmpty:
+            except QueueEmpty:
                 LOGGER.debug('Empty')
                 if self.exit:
                     LOGGER.debug('Exiting')
                     break
             else:
-                # Interruptable sleep.
+                # Interruptable sleep. Simulates working on a task with txn
+                # open.
                 LOGGER.debug('Sleeping for %s', self.work)
                 self.stopping.wait(self.work)
                 LOGGER.debug('Awoke')
@@ -55,7 +58,9 @@ class ThreadedConsumer(threading.Thread):
         LOGGER.debug('Stopping')
 
     def stop(self):
+        LOGGER.debug('Signaling')
         self.stopping.set()
+        LOGGER.debug('Joining')
         self.join()
 
 
@@ -77,13 +82,15 @@ class ThreadedProducer(threading.Thread):
         LOGGER.debug('Stopping')
 
     def stop(self):
+        LOGGER.debug('Signaling')
         self.stopping.set()
+        LOGGER.debug('Joining')
         self.join()
 
 
 class QueueTestCase(unittest.TestCase):
     def setUp(self):
-        self.queue = tpq.Queue('test')
+        self.queue = Queue('test')
         self.queue.clear()
 
     def tearDown(self):

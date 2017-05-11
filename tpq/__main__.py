@@ -1,3 +1,9 @@
+"""
+TPQ CLI
+
+Trivial Postgres Queue Command Line Interface
+"""
+
 from __future__ import absolute_import
 
 import json
@@ -7,7 +13,9 @@ import logging
 from docopt import docopt, DocoptExit
 from schema import Schema, Use, SchemaError
 
-from tpq import QueueEmpty, get, put
+from tpq import (
+    QueueEmpty, get, put
+)
 
 
 LOGGER = logging.getLogger('')
