@@ -24,15 +24,15 @@ also rolled back. Making the larger queue processing operation atomic. Take the
 follow order of operations
 
 
-   .. code:: sql
+.. code:: sql
 
-        BEGIN
-        SELECT ... FROM queue FOR UPDATE SKIP LOCKED
+    BEGIN
+    SELECT ... FROM queue FOR UPDATE SKIP LOCKED
 
-        INSERT INTO ...
-        DELETE FROM ...
+    INSERT INTO ...
+    DELETE FROM ...
 
-        ROLLBACK
+    ROLLBACK
 
 In the above, none of the statements have any affect, and the queue item remains
 in the table to be "retried" by another consumer. Since `FOR UPDATE` is used,
@@ -44,25 +44,25 @@ Python Library Usage
 
 Database connection information can be provided via the library API.
 
-   .. code:: python
+.. code:: python
 
-        import tpq
+    import tpq
 
-        # Explicitly provide database connection information
-        q = tpq.Queue('queue_name', host='localhost', dbname='foobar')
-        q.put('{"foo": "bar"}')
+    # Explicitly provide database connection information
+    q = tpq.Queue('queue_name', host='localhost', dbname='foobar')
+    q.put('{"foo": "bar"}')
 
-        # Or use shortcut functions:
-        tpq.put('queue_name', '{"foo": "bar"}', host='localhost', dbname='foobar')
-        tpq.get('queue_name', host='localhost', dbname='foobar')
+    # Or use shortcut functions:
+    tpq.put('queue_name', '{"foo": "bar"}', host='localhost', dbname='foobar')
+    tpq.get('queue_name', host='localhost', dbname='foobar')
 
-        # Or to take advantage of cooperative transactions, provide a connection:
-        q = tpq.Queue('queue_name', conn=connection)
-        q.put('{"foo": "bar"}')
+    # Or to take advantage of cooperative transactions, provide a connection:
+    q = tpq.Queue('queue_name', conn=connection)
+    q.put('{"foo": "bar"}')
 
-        # Which is also supported by shortcut functions:
-        tpq.put('queue_name', '{"foo": "bar"}', conn=connection)
-        tpq.get('queue_name', conn=connection)
+    # Which is also supported by shortcut functions:
+    tpq.put('queue_name', '{"foo": "bar"}', conn=connection)
+    tpq.get('queue_name', conn=connection)
 
 Or, you can set the connection info in the environment:
 
@@ -79,36 +79,36 @@ Or, you can set the connection info in the environment:
 
 Then omit the parameters:
 
-   .. code:: python
+.. code:: python
 
-        import tpq
+    import tpq
 
-        # Use an instance for multiple operations
-        with tpq.Queue('queue_name') as q:
-            q.put('{"foo": "bar"}')
-            data = q.get()
+    # Use an instance for multiple operations
+    with tpq.Queue('queue_name') as q:
+        q.put('{"foo": "bar"}')
+        data = q.get()
 
-        # Or use shortcut functions:
-        tpq.put('queue_name', '{"foo": "bar"}')
-        tpq.get('queue_name')
+    # Or use shortcut functions:
+    tpq.put('queue_name', '{"foo": "bar"}')
+    tpq.get('queue_name')
 
 Waiting
 -------
 
 You can wait for an item to arrive using the `wait` argument.
 
-   .. code:: python
+.. code:: python
 
-        import tpq
+    import tpq
 
-        # Wait forever
-        tpq.get('queue_name', wait=0)
+    # Wait forever
+    tpq.get('queue_name', wait=0)
 
-        # Don't wait (also can omit the param).
-        tpq.get('queue_name', wait=-1)
+    # Don't wait (also can omit the param).
+    tpq.get('queue_name', wait=-1)
 
-        # Wait specified number of seconds.
-        tpq.get('queue_name', wait=5)
+    # Wait specified number of seconds.
+    tpq.get('queue_name', wait=5)
 
 Command Line Interface
 ----------------------
