@@ -6,6 +6,9 @@
     :target: https://coveralls.io/github/btimby/tpq?branch=master
     :alt: Code Coverage
 
+.. image:: https://badge.fury.io/py/tpq.svg
+    :target: https://badge.fury.io/py/tpq
+
 Trivial Postgres Queue
 ======================
 
