@@ -26,6 +26,11 @@ coveralls:
 sdist:
 	python setup.py sdist
 
-version:
+release:
+ifndef VERSION
+	@echo "Set VERSION, ex: VERSION=1.XX make release"
+else
 	git tag ${VERSION}
+	git push --tags
+endif
 
