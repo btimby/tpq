@@ -26,3 +26,6 @@ coveralls:
 sdist:
 	python setup.py sdist
 
+version:
+	git tag ${VERSION}
+
