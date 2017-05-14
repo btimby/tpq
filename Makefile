@@ -22,3 +22,7 @@ travis:
 
 coveralls:
 	coveralls -v
+
+sdist:
+	python setup.py sdist
+

@@ -33,16 +33,16 @@ LOGGER.addHandler(logging.NullHandler())
 # class QueueItem(UserDict):
 #     """
 #     Queue Item.
-
+#
 #     Returned by get(). Handles transaction implicitly via context manager or
 #     explicitly. Allowing caller to use either:
-
+#
 #         item = queue.get()
 #         ...
 #         item.done()
-
+#
 #     or:
-
+#
 #         with queue.get() as item:
 #             ...
 #     """
@@ -50,10 +50,10 @@ LOGGER.addHandler(logging.NullHandler())
 #         super().__init__(data)
 #         self.conn = conn
 #         self.t = transaction(conn)
-
+#
 #     def __enter__(self):
 #         self.ctx = transaction(self.conn).__enter__()
-
+#
 #     def __exit__(self, *args):
 #         self.ctx.__exit__(*args)
 
