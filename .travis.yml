@@ -4,8 +4,6 @@ language: python
 env:
   global:
   - TPQ_URL=postgresql://postgres@localhost/tpq
-  matrix:
-  - DJANGO=1.10
 services:
 - postgresql
 addons:

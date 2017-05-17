@@ -191,8 +191,8 @@ class ThreadedTests(object):
         """
         self.queue.put({'test': 'test'})
         self.queue.put({'test': 'test'})
-        c1 = ThreadedConsumer(self.queue, work=10)
-        c2 = ThreadedConsumer(self.queue, work=10)
+        c1 = ThreadedConsumer(self.queue, once=True, work=10)
+        c2 = ThreadedConsumer(self.queue, once=True, work=10)
         time.sleep(0.1)
         c1.stop()
         c2.stop()
@@ -298,8 +298,7 @@ class SharedTestCase(Tests, ThreadedTests, unittest.TestCase):
         time.sleep(0.1)
         self.queue.put({'test': 'test'})
         c.stop()
-        self.assertEqual(1, len(c.errors))
-        self.assertIsInstance(c.errors[0], Warning)
+        self.assertEqual(1, len(c.items))
 
 # TODO: we need to test a shared connection, ensuring an open transaction is
 # not committed under put() or get() with or without wait.

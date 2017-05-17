@@ -9,14 +9,14 @@ EXIST = """
 SELECT EXISTS (
     SELECT *
     FROM information_schema.tables
-    WHERE table_name='tpq_%(name)s'
+    WHERE table_name='%(name)s'
 )
 """
 
 CREATE = """
 DO $$ BEGIN
 
-CREATE TABLE "tpq_%(name)s" (
+CREATE TABLE "%(name)s" (
     id          bigserial       PRIMARY KEY,
     data        json            NOT NULL
 );
@@ -31,20 +31,20 @@ CREATE FUNCTION tpq_notify_%(name)s() RETURNS TRIGGER AS $$ BEGIN
 END $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER tpq_insert_%(name)s
-AFTER INSERT ON "tpq_%(name)s"
+AFTER INSERT ON "%(name)s"
 FOR EACH ROW
 EXECUTE PROCEDURE tpq_notify_%(name)s();
 """
 
 PUT = """
-INSERT INTO tpq_%(name)s (data) VALUES (%(data)s) RETURNING id;
+INSERT INTO "%(name)s" (data) VALUES (%(data)s) RETURNING id;
 """
 
 GET = """
-DELETE FROM tpq_%(name)s
+DELETE FROM "%(name)s"
 WHERE id = (
     SELECT id
-    FROM tpq_%(name)s
+    FROM "%(name)s"
     ORDER BY id
     FOR UPDATE SKIP LOCKED
     LIMIT 1
@@ -55,7 +55,7 @@ RETURNING data;
 LEN = """
 WITH queued AS (
     SELECT *
-    FROM tpq_%(name)s
+    FROM "%(name)s"
     FOR UPDATE SKIP LOCKED
 )
 SELECT COUNT(*) FROM queued;
@@ -64,8 +64,8 @@ SELECT COUNT(*) FROM queued;
 DEL = """
 WITH queued AS (
     SELECT id
-    FROM tpq_%(name)s
+    FROM "%(name)s"
     FOR UPDATE SKIP LOCKED
 )
-DELETE FROM tpq_%(name)s WHERE id IN (SELECT id FROM queued);
+DELETE FROM "%(name)s" WHERE id IN (SELECT id FROM queued);
 """
